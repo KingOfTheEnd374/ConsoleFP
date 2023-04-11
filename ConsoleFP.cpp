@@ -34,22 +34,23 @@ Display Console;
 
 int main()
 {
-	Map += L"................";
-	Map += L"................";
-	Map += L"................";
-	Map += L"................";
-	Map += L"................";
-	Map += L"................";
-	Map += L"................";
-	Map += L"................";
-	Map += L"....#...........";
-	Map += L"................";
-	Map += L"....#...........";
-	Map += L"................";
-	Map += L"................";
-	Map += L"................";
-	Map += L"................";
-	Map += L"................";
+		   //0123456789012345
+	Map += L"................"; //0
+	Map += L"................"; //1
+	Map += L"................"; //2
+	Map += L"................"; //3
+	Map += L"................"; //4
+	Map += L"....o.o.o......."; //5
+	Map += L"................"; //6
+	Map += L"................"; //7
+	Map += L"..io#..........."; //8
+	Map += L"..ooo..........."; //9
+	Map += L"..io............"; //10
+	Map += L"................"; //11
+	Map += L"................"; //12
+	Map += L"................"; //13
+	Map += L"................"; //14
+	Map += L"................"; //15
 
 	//LineTrace(FVector2D(4.5f, 9.5f), FVector2D(4.5f, 9.5f) + SunDirection * 1.0f);
 
@@ -164,7 +165,7 @@ void CalculatePixels()
 		//RayAngle = Player.Rotation;
 
 		//Hit Impact;
-		bool Boundary = false;
+		//bool Boundary = false;
 
 		// Direction vector of the ray
 		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
@@ -173,7 +174,7 @@ void CalculatePixels()
 
 		//TraceForWalls(LookDir, Impact, Boundary);
 
-		CalculateShading(Impact, x, Boundary);
+		CalculateShading(Impact, x/*, Boundary*/);
 	}
 }
 
@@ -317,8 +318,6 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 		RayLength1D.Y = (CheckedCell.Y + 1 - Start.Y) * RayStep.Y;
 	}
 
-	//bool HitWall = false;
-
 	while (!HitData.HitSurface && HitData.Distance < (End - Start).Lenght())
 	{
 		if (RayLength1D.X < RayLength1D.Y)
@@ -334,12 +333,15 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 			RayLength1D.Y += RayStep.Y;
 		}
 
+		if (HitData.Distance > (End - Start).Lenght())
+		{
+			break;
+		}
+
 		if (CheckedCell.X >= 0 && CheckedCell.X < MapWidth && CheckedCell.Y >= 0 && CheckedCell.Y < MapHeight)
 		{
 			if (Map[CheckedCell.Y * MapWidth + CheckedCell.X] == '#')
 			{
-				//HitWall = true;
-
 				HitData.HitSurface = true;
 
 				HitData.Location = Start + LookDir * HitData.Distance;
@@ -400,10 +402,11 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 	return HitData;
 }
 
-void CalculateShading(Hit HitData, int x, bool bBoundary)
+void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
 {
 	// Calculate ceiling and floor size
-	int Ceiling = Console.ScreenHeight / 2.0f - Console.ScreenHeight / HitData.Distance;
+	int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * (atanf(Player.Heigth / HitData.Distance) / (Player.vFOV / 2.0f));
+	//int Ceiling = Console.ScreenHeight / 2.0f - Console.ScreenHeight / HitData.Distance;
 	/*int Ceiling;
 	if (HitData.HitSurface)
 	{
@@ -433,18 +436,32 @@ void CalculateShading(Hit HitData, int x, bool bBoundary)
 			else if (HitData.Distance < Player.ViewDistance)			Shade = 0x2591;
 			else														Shade = ' ';	// Too far away
 
-			if (bBoundary) Shade = ' ';
+			//if (bBoundary) Shade = ' ';
 
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
 
 			float AngleToSun = acosf(HitData.Normal * SunDirection / HitData.Normal.Lenght() / SunDirection.Lenght());
 			if (3.14f / 2.0f > AngleToSun)
 			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
+				if (abs(HitData.Normal.X) > 0.9f)
+				{
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0007;
+				}
+				else
+				{
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
+				}
 			}
 			else
 			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0001;
+				if (abs(HitData.Normal.Y) > 0.9f)
+				{
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0001;
+				}
+				else
+				{
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0009;
+				}
 			}
 		}
 		else
@@ -452,25 +469,30 @@ void CalculateShading(Hit HitData, int x, bool bBoundary)
 			float b = 1.0f - ((y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f));
 			if (b < 0.75f)		Shade = '#';
 			else if (b < 0.85f)	Shade = 'x';
-			else if (b < 0.9f)	Shade = '-';
-			else if (b < 0.95f)	Shade = '.';
+			else if (b < 0.9f)	Shade = '.';
+			else if (b < 0.95f)	Shade = '-';
 			else				Shade = ' ';
 
-			if (GetAsyncKeyState(VK_SPACE))
-			{
-				cout << "tst";
-			}
-			//FVector2D FloorLoc = Player.Location + (HitData.Location - Player.Location).Normalize() * (HitData.Distance / (Console.ScreenHeight - Floor) * (Console.ScreenHeight - y));
-			FVector2D FloorLoc = Player.Location + (HitData.Location - Player.Location).Normalize() * (0.2f * (Console.ScreenHeight - y));
+			float RayAngle = 3.14159f / 2.0f - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+			FVector2D FloorLoc = Player.Location + (HitData.Location - Player.Location).Normalize() * (tanf(RayAngle) * Player.Heigth);
 			FVector2D EndLoc = FloorLoc + SunDirection * 1.0f;
-			Hit LightRay = LineTrace(FloorLoc, FloorLoc + SunDirection * 1.0f);
-			if (LightRay.HitSurface)
+			
+			if ((int)FloorLoc.Y * MapWidth + (int)FloorLoc.X >= 0 && (int)FloorLoc.Y * MapWidth + (int)FloorLoc.X < 256 && Map[(int)FloorLoc.Y * MapWidth + (int)FloorLoc.X] == 'o')
 			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0001;
+				Hit LightRay = LineTrace(FloorLoc, FloorLoc + SunDirection * 1.0f);
+				if (LightRay.HitSurface)
+				{
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x00B0;
+				}
+				else
+				{
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
+				}
 			}
-			else
+
+			if ((int)FloorLoc.Y * MapWidth + (int)FloorLoc.X >= 0 && (int)FloorLoc.Y * MapWidth + (int)FloorLoc.X < 256 && Map[(int)FloorLoc.Y * MapWidth + (int)FloorLoc.X] == 'i')
 			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
+				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0004;
 			}
 
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
