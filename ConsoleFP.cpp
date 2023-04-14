@@ -74,6 +74,8 @@ void EventTick(float DeltaT)
 
 void HandleInput()
 {
+	FVector2D LookDir = FVector2D(cosf(Player.Rotation), sinf(Player.Rotation));
+
 	// Rotation
 	if (GetAsyncKeyState((unsigned short)'Q'))
 	{
@@ -82,6 +84,26 @@ void HandleInput()
 	if (GetAsyncKeyState((unsigned short)'E'))
 	{
 		Player.Rotation += Player.Sensitivity * DeltaTime;
+	}
+
+	// Build and Destroy
+	if (GetAsyncKeyState((unsigned short)'F'))
+	{
+		Hit Destroy = LineTrace(Player.Location, Player.Location + LookDir * 1.0f);
+		Destroy.Location -= Destroy.Normal * 0.1f;
+		if (Destroy.HitSurface && Map[(int)Destroy.Location.Y * MapWidth + (int)Destroy.Location.X] == '#')
+		{
+			Map[(int)Destroy.Location.Y * MapWidth + (int)Destroy.Location.X] = '.';
+		}
+	}
+	if (GetAsyncKeyState((unsigned short)'R'))
+	{
+		FVector2D BuildLoc = Player.Location + LookDir * 1.41f;
+		Hit Build = LineTrace(Player.Location, BuildLoc);
+		if (!Build.HitSurface && Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] == '.')
+		{
+			Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] = '#';
+		}
 	}
 
 	// Movement
