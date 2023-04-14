@@ -62,7 +62,7 @@ void EventTick(float DeltaT)
 {
 	DeltaTime = DeltaT;
 
-	SunDirection = FVector2D(cosf(0.08726f * DeltaTime) * SunDirection.X - sinf(0.08726f * DeltaTime) * SunDirection.Y, sinf(0.08726f * DeltaTime) * SunDirection.X + cosf(0.08726f * DeltaTime) * SunDirection.Y);
+	//SunDirection = FVector2D(cosf(0.08726f * DeltaTime) * SunDirection.X - sinf(0.08726f * DeltaTime) * SunDirection.Y, sinf(0.08726f * DeltaTime) * SunDirection.X + cosf(0.08726f * DeltaTime) * SunDirection.Y);
 
 	HandleInput();
 
@@ -306,6 +306,37 @@ void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
 				{
 					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
 				}
+
+				if (y > Console.ScreenHeight / 2)
+				{
+					float RayAngle = 3.14159f / 2.0f - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+					float PointHeight = 1.0f - Player.Heigth + HitData.Distance / tanf(RayAngle);
+					FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
+
+					Hit LightRay = LineTrace(HitData.Location, EndLoc);
+					if (LightRay.HitSurface)
+					{
+						if (LightRay.Distance <= PointHeight)
+						{
+							Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
+						}
+					}
+				}
+				else
+				{
+					float RayAngle = (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+					float PointHeight = Player.Heigth - HitData.Distance * tanf(RayAngle);
+					FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
+
+					Hit LightRay = LineTrace(HitData.Location, EndLoc);
+					if (LightRay.HitSurface)
+					{
+						if (1.0f - LightRay.Distance > PointHeight)
+						{
+							Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
+						}
+					}
+				}
 			}
 			else
 			{
@@ -332,10 +363,10 @@ void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
 			FVector2D FloorLoc = Player.Location + (HitData.Location - Player.Location).Normalize() * (tanf(RayAngle) * Player.Heigth);
 			FVector2D EndLoc = FloorLoc + SunDirection * 1.0f;
 
-			Hit LightRay = LineTrace(FloorLoc, FloorLoc + SunDirection * 1.0f);
+			Hit LightRay = LineTrace(FloorLoc, EndLoc);
 			if (LightRay.HitSurface)
 			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x00B0;
+				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
 			}
 			else
 			{
