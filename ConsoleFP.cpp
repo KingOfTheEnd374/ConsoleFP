@@ -317,60 +317,7 @@ void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
 
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
 
-			float AngleToSun = acosf(HitData.Normal * SunDirection / HitData.Normal.Lenght() / SunDirection.Lenght());
-			if (3.14f / 2.0f > AngleToSun)
-			{
-				if (abs(HitData.Normal.X) > 0.9f)
-				{
-					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0007;
-				}
-				else
-				{
-					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
-				}
-
-				if (y > Console.ScreenHeight / 2)
-				{
-					float RayAngle = 3.14159f / 2.0f - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
-					float PointHeight = 1.0f - Player.Heigth + HitData.Distance / tanf(RayAngle);
-					FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
-
-					Hit LightRay = LineTrace(HitData.Location, EndLoc);
-					if (LightRay.HitSurface)
-					{
-						if (LightRay.Distance <= PointHeight)
-						{
-							Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
-						}
-					}
-				}
-				else
-				{
-					float RayAngle = (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
-					float PointHeight = Player.Heigth - HitData.Distance * tanf(RayAngle);
-					FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
-
-					Hit LightRay = LineTrace(HitData.Location, EndLoc);
-					if (LightRay.HitSurface)
-					{
-						if (1.0f - LightRay.Distance > PointHeight)
-						{
-							Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
-						}
-					}
-				}
-			}
-			else
-			{
-				if (abs(HitData.Normal.Y) > 0.9f)
-				{
-					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0001;
-				}
-				else
-				{
-					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0009;
-				}
-			}
+			WallLighting(x, y, HitData);
 		}
 		else
 		{
@@ -381,28 +328,91 @@ void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
 			else if (b < 0.95f)	Shade = '-';
 			else				Shade = ' ';
 
-			float RayAngle = 3.14159f / 2.0f - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
-			FVector2D FloorLoc = Player.Location + (HitData.Location - Player.Location).Normalize() * (tanf(RayAngle) * Player.Heigth);
-			FVector2D EndLoc = FloorLoc + SunDirection * 1.0f;
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
 
-			Hit LightRay = LineTrace(FloorLoc, EndLoc);
-			if (LightRay.HitSurface)
-			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
-			}
-			else
-			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
-			}
+			FloorLighting(x, y, HitData);
 			
 
 			/*if ((int)FloorLoc.Y * MapWidth + (int)FloorLoc.X >= 0 && (int)FloorLoc.Y * MapWidth + (int)FloorLoc.X < 256 && Map[(int)FloorLoc.Y * MapWidth + (int)FloorLoc.X] == 'i')
 			{
 				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0004;
 			}*/
-
-			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
 		}
+	}
+}
+
+void WallLighting(int x, int y, Hit& HitData)
+{
+	float AngleToSun = acosf(HitData.Normal * SunDirection / HitData.Normal.Lenght() / SunDirection.Lenght());
+	if (3.14f / 2.0f > AngleToSun)
+	{
+		if (abs(HitData.Normal.X) > 0.9f)
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0007;
+		}
+		else
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
+		}
+
+		if (y > Console.ScreenHeight / 2)
+		{
+			float RayAngle = 3.14159f / 2.0f - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+			float PointHeight = 1.0f - Player.Heigth + HitData.Distance / tanf(RayAngle);
+			FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
+
+			Hit LightRay = LineTrace(HitData.Location, EndLoc);
+			if (LightRay.HitSurface)
+			{
+				if (LightRay.Distance <= PointHeight)
+				{
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
+				}
+			}
+		}
+		else
+		{
+			float RayAngle = (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+			float PointHeight = Player.Heigth - HitData.Distance * tanf(RayAngle);
+			FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
+
+			Hit LightRay = LineTrace(HitData.Location, EndLoc);
+			if (LightRay.HitSurface)
+			{
+				if (1.0f - LightRay.Distance > PointHeight)
+				{
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
+				}
+			}
+		}
+	}
+	else
+	{
+		if (abs(HitData.Normal.Y) > 0.9f)
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0001;
+		}
+		else
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0009;
+		}
+	}
+}
+
+void FloorLighting(int x, int y, Hit& HitData)
+{
+	float RayAngle = 3.14159f / 2.0f - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+	FVector2D FloorLoc = Player.Location + (HitData.Location - Player.Location).Normalize() * (tanf(RayAngle) * Player.Heigth);
+	FVector2D EndLoc = FloorLoc + SunDirection * 1.0f;
+
+	Hit LightRay = LineTrace(FloorLoc, EndLoc);
+	if (LightRay.HitSurface)
+	{
+		Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
+	}
+	else
+	{
+		Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
 	}
 }
 

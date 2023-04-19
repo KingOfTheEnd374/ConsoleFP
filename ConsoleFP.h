@@ -14,4 +14,8 @@ Hit LineTrace(FVector2D Start, FVector2D End);
 
 void CalculateShading(Hit HitData, int x);
 
+void WallLighting(int x, int y, Hit& HitData);
+
+void FloorLighting(int x, int y, Hit& HitData);
+
 void DrawUI();
