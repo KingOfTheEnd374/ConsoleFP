@@ -7,6 +7,7 @@ using namespace std;
 #include <Windows.h>
 #include "ConsoleFP.h"
 #include "ConsoleDisplay.h"
+#include "RayTracing.h"
 
 #include "HelperFunctions.h"
 #include "PlayerObject.h"
@@ -17,6 +18,8 @@ wstring Map;
 int MapHeight = 16;
 int MapWidth = 16;
 FVector2D SunDirection = FVector2D(1.0f, -1.0f).Normalize();
+
+unsigned long Frame = 0;
 
 PlayerObject Player(FVector2D(8.0f, 8.0f));
 
@@ -46,7 +49,7 @@ int main()
 	Map += L"#...#........#.."; //8
 	Map += L"#.............#."; //9
 	Map += L"#..............#"; //10
-	Map += L"#..............#"; //11
+	Map += L"#.......s......#"; //11
 	Map += L"#..............#"; //12
 	Map += L"#..............#"; //13
 	Map += L"#..............#"; //14
@@ -61,6 +64,8 @@ int main()
 void EventTick(float DeltaT)
 {
 	DeltaTime = DeltaT;
+
+	Frame++;
 
 	//SunDirection = FVector2D(cosf(0.08726f * DeltaTime) * SunDirection.X - sinf(0.08726f * DeltaTime) * SunDirection.Y, sinf(0.08726f * DeltaTime) * SunDirection.X + cosf(0.08726f * DeltaTime) * SunDirection.Y);
 
@@ -80,10 +85,16 @@ void HandleInput()
 	if (GetAsyncKeyState((unsigned short)'Q'))
 	{
 		Player.Rotation += -Player.Sensitivity * DeltaTime;
+
+		Frame = 0;
+		ClearLightData();
 	}
 	if (GetAsyncKeyState((unsigned short)'E'))
 	{
 		Player.Rotation += Player.Sensitivity * DeltaTime;
+
+		Frame = 0;
+		ClearLightData();
 	}
 
 	// Build and Destroy
@@ -91,19 +102,25 @@ void HandleInput()
 	{
 		Hit Destroy = LineTrace(Player.Location, Player.Location + LookDir * 1.0f);
 		Destroy.Location -= Destroy.Normal * 0.1f;
-		if (Destroy.HitSurface && Map[(int)Destroy.Location.Y * MapWidth + (int)Destroy.Location.X] == '#')
+		if (Destroy.DidHit && Map[(int)Destroy.Location.Y * MapWidth + (int)Destroy.Location.X] == '#')
 		{
 			Map[(int)Destroy.Location.Y * MapWidth + (int)Destroy.Location.X] = '.';
 		}
+
+		Frame = 0;
+		ClearLightData();
 	}
 	if (GetAsyncKeyState((unsigned short)'R'))
 	{
 		FVector2D BuildLoc = Player.Location + LookDir * 1.41f;
 		Hit Build = LineTrace(Player.Location, BuildLoc);
-		if (!Build.HitSurface && Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] == '.')
+		if (!Build.DidHit && Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] == '.')
 		{
 			Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] = '#';
 		}
+
+		Frame = 0;
+		ClearLightData();
 	}
 
 	// Movement
@@ -136,6 +153,9 @@ void HandleCollision(FVector2D& MovementVector)
 {
 	if (MovementVector.X != 0 || MovementVector.Y != 0)
 	{
+		Frame = 0;
+		ClearLightData();
+
 
 		MovementVector = MovementVector.Normalize();
 
@@ -190,7 +210,7 @@ void CalculatePixels()
 
 		Hit Impact =  LineTrace(Player.Location, Player.Location + LookDir * Player.ViewDistance);
 
-		CalculateShading(Impact, x/*, Boundary*/);
+		CalculateShading(Impact, x);
 	}
 }
 
@@ -229,7 +249,7 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 		RayLength1D.Y = (CheckedCell.Y + 1 - Start.Y) * RayStep.Y;
 	}
 
-	while (!HitData.HitSurface && HitData.Distance < (End - Start).Lenght())
+	while (!HitData.DidHit && HitData.Distance < (End - Start).Lenght())
 	{
 		if (RayLength1D.X < RayLength1D.Y)
 		{
@@ -251,9 +271,10 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 
 		if (CheckedCell.X >= 0 && CheckedCell.X < MapWidth && CheckedCell.Y >= 0 && CheckedCell.Y < MapHeight)
 		{
-			if (Map[CheckedCell.Y * MapWidth + CheckedCell.X] == '#')
+			if (Map[CheckedCell.Y * MapWidth + CheckedCell.X] != '.')
 			{
-				HitData.HitSurface = true;
+				HitData.DidHit = true;
+				HitData.Object = Map[CheckedCell.Y * MapWidth + CheckedCell.X];
 
 				HitData.Location = Start + LookDir * HitData.Distance;
 				FVector2D Normal;
@@ -283,7 +304,7 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 		}
 	}
 
-	if (!HitData.HitSurface)
+	if (!HitData.DidHit)
 	{
 		HitData.Location = Start + LookDir * (End - Start).Lenght();
 	}
@@ -291,7 +312,7 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 	return HitData;
 }
 
-void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
+void CalculateShading(Hit HitData, int x)
 {
 	// Calculate ceiling and floor size
 	int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * (atanf(Player.Heigth / HitData.Distance) / (Player.vFOV / 2.0f));
@@ -317,7 +338,7 @@ void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
 
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
 
-			WallLighting(x, y, HitData);
+			//WallLighting(x, y, HitData);
 		}
 		else
 		{
@@ -330,13 +351,12 @@ void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
 
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
 
-			FloorLighting(x, y, HitData);
-			
+			//FloorLighting(x, y, HitData);
 
-			/*if ((int)FloorLoc.Y * MapWidth + (int)FloorLoc.X >= 0 && (int)FloorLoc.Y * MapWidth + (int)FloorLoc.X < 256 && Map[(int)FloorLoc.Y * MapWidth + (int)FloorLoc.X] == 'i')
-			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0004;
-			}*/
+			float RayAngle = 3.14159f / 2.0f - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+			FVector2D FloorLoc = Player.Location + (HitData.Location - Player.Location).Normalize() * (tanf(RayAngle) * Player.Heigth);
+
+			Console.Screen[y * Console.ScreenWidth + x].Attributes = FloorRayTracing(x, y, FloorLoc, Frame, Console.ScreenWidth);
 		}
 	}
 }
@@ -362,7 +382,7 @@ void WallLighting(int x, int y, Hit& HitData)
 			FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
 
 			Hit LightRay = LineTrace(HitData.Location, EndLoc);
-			if (LightRay.HitSurface)
+			if (LightRay.DidHit)
 			{
 				if (LightRay.Distance <= PointHeight)
 				{
@@ -377,7 +397,7 @@ void WallLighting(int x, int y, Hit& HitData)
 			FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
 
 			Hit LightRay = LineTrace(HitData.Location, EndLoc);
-			if (LightRay.HitSurface)
+			if (LightRay.DidHit)
 			{
 				if (1.0f - LightRay.Distance > PointHeight)
 				{
@@ -406,7 +426,7 @@ void FloorLighting(int x, int y, Hit& HitData)
 	FVector2D EndLoc = FloorLoc + SunDirection * 1.0f;
 
 	Hit LightRay = LineTrace(FloorLoc, EndLoc);
-	if (LightRay.HitSurface)
+	if (LightRay.DidHit)
 	{
 		Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
 	}

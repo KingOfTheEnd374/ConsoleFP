@@ -74,10 +74,11 @@ struct IVector2D
 
 struct Hit
 {
-	bool HitSurface = false;
+	bool DidHit = false;
 	FVector2D Location;
 	FVector2D Normal;
 	float Distance = 0.0f;
+	wchar_t Object = L'\0';
 };
 
 /*enum COLOUR
@@ -123,3 +124,9 @@ enum PIXEL_TYPE
 	PIXEL_HALF = 0x2592,
 	PIXEL_QUARTER = 0x2591,
 };*/
+
+
+/*if ((int)FloorLoc.Y * MapWidth + (int)FloorLoc.X >= 0 && (int)FloorLoc.Y * MapWidth + (int)FloorLoc.X < 256 && Map[(int)FloorLoc.Y * MapWidth + (int)FloorLoc.X] == 'i')
+			{
+				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0004;
+			}*/

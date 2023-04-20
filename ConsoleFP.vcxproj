@@ -136,6 +136,7 @@
     <ClInclude Include="HelperFunctions.h" />
     <ClInclude Include="Object.h" />
     <ClInclude Include="PlayerObject.h" />
+    <ClInclude Include="RayTracing.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
