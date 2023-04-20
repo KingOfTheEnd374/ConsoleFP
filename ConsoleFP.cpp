@@ -91,7 +91,7 @@ void HandleInput()
 	{
 		Hit Destroy = LineTrace(Player.Location, Player.Location + LookDir * 1.0f);
 		Destroy.Location -= Destroy.Normal * 0.1f;
-		if (Destroy.HitSurface && Map[(int)Destroy.Location.Y * MapWidth + (int)Destroy.Location.X] == '#')
+		if (Destroy.DidHit && Map[(int)Destroy.Location.Y * MapWidth + (int)Destroy.Location.X] == '#')
 		{
 			Map[(int)Destroy.Location.Y * MapWidth + (int)Destroy.Location.X] = '.';
 		}
@@ -100,7 +100,7 @@ void HandleInput()
 	{
 		FVector2D BuildLoc = Player.Location + LookDir * 1.41f;
 		Hit Build = LineTrace(Player.Location, BuildLoc);
-		if (!Build.HitSurface && Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] == '.')
+		if (!Build.DidHit && Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] == '.')
 		{
 			Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] = '#';
 		}
@@ -190,7 +190,7 @@ void CalculatePixels()
 
 		Hit Impact =  LineTrace(Player.Location, Player.Location + LookDir * Player.ViewDistance);
 
-		CalculateShading(Impact, x/*, Boundary*/);
+		CalculateShading(Impact, x);
 	}
 }
 
@@ -229,7 +229,7 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 		RayLength1D.Y = (CheckedCell.Y + 1 - Start.Y) * RayStep.Y;
 	}
 
-	while (!HitData.HitSurface && HitData.Distance < (End - Start).Lenght())
+	while (!HitData.DidHit && HitData.Distance < (End - Start).Lenght())
 	{
 		if (RayLength1D.X < RayLength1D.Y)
 		{
@@ -253,7 +253,7 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 		{
 			if (Map[CheckedCell.Y * MapWidth + CheckedCell.X] == '#')
 			{
-				HitData.HitSurface = true;
+				HitData.DidHit = true;
 
 				HitData.Location = Start + LookDir * HitData.Distance;
 				FVector2D Normal;
@@ -283,7 +283,7 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 		}
 	}
 
-	if (!HitData.HitSurface)
+	if (!HitData.DidHit)
 	{
 		HitData.Location = Start + LookDir * (End - Start).Lenght();
 	}
@@ -291,7 +291,7 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 	return HitData;
 }
 
-void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
+void CalculateShading(Hit HitData, int x)
 {
 	// Calculate ceiling and floor size
 	int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * (atanf(Player.Heigth / HitData.Distance) / (Player.vFOV / 2.0f));
@@ -331,12 +331,6 @@ void CalculateShading(Hit HitData, int x/*, bool bBoundary*/)
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
 
 			FloorLighting(x, y, HitData);
-			
-
-			/*if ((int)FloorLoc.Y * MapWidth + (int)FloorLoc.X >= 0 && (int)FloorLoc.Y * MapWidth + (int)FloorLoc.X < 256 && Map[(int)FloorLoc.Y * MapWidth + (int)FloorLoc.X] == 'i')
-			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0004;
-			}*/
 		}
 	}
 }
@@ -362,7 +356,7 @@ void WallLighting(int x, int y, Hit& HitData)
 			FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
 
 			Hit LightRay = LineTrace(HitData.Location, EndLoc);
-			if (LightRay.HitSurface)
+			if (LightRay.DidHit)
 			{
 				if (LightRay.Distance <= PointHeight)
 				{
@@ -377,7 +371,7 @@ void WallLighting(int x, int y, Hit& HitData)
 			FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
 
 			Hit LightRay = LineTrace(HitData.Location, EndLoc);
-			if (LightRay.HitSurface)
+			if (LightRay.DidHit)
 			{
 				if (1.0f - LightRay.Distance > PointHeight)
 				{
@@ -406,7 +400,7 @@ void FloorLighting(int x, int y, Hit& HitData)
 	FVector2D EndLoc = FloorLoc + SunDirection * 1.0f;
 
 	Hit LightRay = LineTrace(FloorLoc, EndLoc);
-	if (LightRay.HitSurface)
+	if (LightRay.DidHit)
 	{
 		Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
 	}
