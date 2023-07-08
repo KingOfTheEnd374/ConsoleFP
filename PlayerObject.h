@@ -5,7 +5,7 @@
 class PlayerObject : public Object
 {
 public:
-	float Rotation = 0.0f;
+	FVector2D Rotation;
 	float FOV = 3.14159f / 2.0f;
 	float Sensitivity = 1.8f;
 	float ViewDistance = 32.0f;
@@ -18,6 +18,6 @@ public:
 
 	PlayerObject(FVector2D Loc, float Rot = 0.0f) : Object(Loc)
 	{
-		Rotation = Rot;
+		Rotation.X = Rot;
 	}
 };
