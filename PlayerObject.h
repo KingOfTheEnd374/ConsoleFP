@@ -7,7 +7,7 @@ class PlayerObject : public Object
 public:
 	FVector2D Rotation;
 	float FOV = 3.14159f / 2.0f;
-	float Sensitivity = 1.8f;
+	float Sensitivity = 1.0f;
 	float ViewDistance = 32.0f;
 
 	float Heigth = 0.5f; // Do not change

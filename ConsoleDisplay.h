@@ -82,7 +82,7 @@ public:
 			OnUpdate(DeltaTime);
 
 			wchar_t s[256];
-			swprintf_s(s, 256, L"%s - FPS: %3.2f", GameName.c_str(), 1.0f / DeltaTime);
+			swprintf_s(s, 256, L"%s - FPS: %.f", GameName.c_str(), 1.0f / DeltaTime);
 			SetConsoleTitle(s);
 			WriteConsoleOutput(ConsoleHandle, Screen, { (short)ScreenWidth, (short)ScreenHeight }, { 0,0 }, &RectWindow);
 		}

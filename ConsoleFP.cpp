@@ -53,6 +53,7 @@ int main()
 	Map += L"################"; //15
 
 	Console.CreateConsole(200, 100, 8, 8);
+	SetCursorPos(500, 500);
 	Console.Start();
 
 	return 0;
@@ -77,22 +78,35 @@ void HandleInput()
 	FVector2D LookDir = FVector2D(cosf(Player.Rotation.X), sinf(Player.Rotation.X));
 
 	// Rotation
-	if (GetAsyncKeyState((unsigned short)'Q'))
+	if (GetAsyncKeyState(VK_LEFT/*(unsigned short)'Q'*/))
 	{
-		Player.Rotation.X += -Player.Sensitivity * DeltaTime;
+		Player.Rotation.X += -Player.Sensitivity * 1.8f * DeltaTime;
 	}
-	if (GetAsyncKeyState((unsigned short)'E'))
+	if (GetAsyncKeyState(VK_RIGHT/*(unsigned short)'E'*/))
 	{
-		Player.Rotation.X += Player.Sensitivity * DeltaTime;
+		Player.Rotation.X += Player.Sensitivity * 1.8f * DeltaTime;
 	}
-	if (GetAsyncKeyState((unsigned short)'Z'))
+	if (GetAsyncKeyState(VK_UP/*(unsigned short)'Z'*/))
 	{
-		Player.Rotation.Y += -Player.Sensitivity * DeltaTime;
+		Player.Rotation.Y += +Player.Sensitivity * 1.8f * DeltaTime;
 	}
-	if (GetAsyncKeyState((unsigned short)'X'))
+	if (GetAsyncKeyState(VK_DOWN/*(unsigned short)'X'*/))
 	{
-		Player.Rotation.Y += Player.Sensitivity * DeltaTime;
+		Player.Rotation.Y += -Player.Sensitivity * 1.8f * DeltaTime;
 	}
+
+	POINT pos;
+	GetCursorPos(&pos);
+	if (pos.x != 500)
+	{
+		Player.Rotation.X += (pos.x - 500) * (Player.Sensitivity * 0.01f/* * DeltaTime*/);
+	}
+	if (pos.y != 500)
+	{
+		Player.Rotation.Y += (pos.y - 500) * (-Player.Sensitivity * 1.5f * 0.01f/* * DeltaTime*/);
+		Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 4.0f, 3.14159f / 4.0f);
+	}
+	SetCursorPos(500, 500);
 
 	// Build and Destroy
 	if (GetAsyncKeyState((unsigned short)'F'))
