@@ -25,7 +25,8 @@ FVector2D RandomWallDirEndLocation(FVector2D Location, FVector2D Normal, float H
 	float Yaw = 2.0f * 3.14159f * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 	Pitch = 3.14159f / 2.0f * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 
-	float dist
+	float dist;
+	return FVector2D();
 	
 }
 
@@ -44,7 +45,7 @@ short FloorRayTracing(int x, int y, FVector2D FloorLoc, unsigned long Frame, int
 		else
 		{
 			float Height = tanf(Pitch) * LightRay.Distance;
-			WallRayTracing(x, y, LightRay.Location, LightRay.Normal, Height, Frame, ScreenWidth, BounceCount + 1);
+			//WallRayTracing(x, y, LightRay.Location, LightRay.Normal, Height, Frame, ScreenWidth, BounceCount + 1);
 		}
 	}
 	
@@ -69,7 +70,7 @@ short FloorRayTracing(int x, int y, FVector2D FloorLoc, unsigned long Frame, int
 
 short WallRayTracing(int x, int y, FVector2D Location, FVector2D Normal, float Height, unsigned long Frame, int ScreenWidth, int BounceCount = 0)
 {
-	FVector2D EndLoc = RandomWallDirEndLocation();
+	//FVector2D EndLoc = RandomWallDirEndLocation();
 
 	double color = LightData[y * ScreenWidth + x] / Frame;
 	if (color >= 0.1 && color < 1.0)
