@@ -45,12 +45,12 @@ int main()
 	Map += L"#..........##..."; //7
 	Map += L"#...#........#.."; //8
 	Map += L"#.............#."; //9
-	Map += L"#..............#"; //10
+	Map += L"#.......p......#"; //10
 	Map += L"#..............#"; //11
 	Map += L"#..............#"; //12
 	Map += L"#..............#"; //13
 	Map += L"#..............#"; //14
-	Map += L"################"; //15
+	Map += L"#######...######"; //15
 
 	Console.CreateConsole(200, 100, 8, 8);
 	SetCursorPos(500, 500);
@@ -80,30 +80,30 @@ void HandleInput()
 	// Rotation
 	if (GetAsyncKeyState(VK_LEFT/*(unsigned short)'Q'*/))
 	{
-		Player.Rotation.X += -Player.Sensitivity * 1.8f * DeltaTime;
+		Player.Rotation.X += -Player.Sensitivity * DeltaTime;
 	}
 	if (GetAsyncKeyState(VK_RIGHT/*(unsigned short)'E'*/))
 	{
-		Player.Rotation.X += Player.Sensitivity * 1.8f * DeltaTime;
+		Player.Rotation.X += Player.Sensitivity * DeltaTime;
 	}
 	if (GetAsyncKeyState(VK_UP/*(unsigned short)'Z'*/))
 	{
-		Player.Rotation.Y += +Player.Sensitivity * 1.8f * DeltaTime;
+		Player.Rotation.Y += +Player.Sensitivity * DeltaTime;
 	}
 	if (GetAsyncKeyState(VK_DOWN/*(unsigned short)'X'*/))
 	{
-		Player.Rotation.Y += -Player.Sensitivity * 1.8f * DeltaTime;
+		Player.Rotation.Y += -Player.Sensitivity * DeltaTime;
 	}
 
 	POINT pos;
 	GetCursorPos(&pos);
 	if (pos.x != 500)
 	{
-		Player.Rotation.X += (pos.x - 500) * (Player.Sensitivity * 0.01f/* * DeltaTime*/);
+		Player.Rotation.X += (pos.x - 500) * (Player.MouseSensitivity * 0.01f/* * DeltaTime*/);
 	}
 	if (pos.y != 500)
 	{
-		Player.Rotation.Y += (pos.y - 500) * (-Player.Sensitivity * 1.5f * 0.01f/* * DeltaTime*/);
+		Player.Rotation.Y += (pos.y - 500) * (-Player.MouseSensitivity * 0.01f/* * DeltaTime*/);
 		Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 4.0f, 3.14159f / 4.0f);
 	}
 	SetCursorPos(500, 500);
@@ -220,6 +220,9 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 {
 	Hit HitData;
 
+	HitData.Start = Start;
+	HitData.End = End;
+
 	FVector2D LookDir = (End - Start).Normalize();
 
 	FVector2D RayStep = FVector2D(abs(1.0f / LookDir.X), abs(1.0f / LookDir.Y));
@@ -273,9 +276,11 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 
 		if (CheckedCell.X >= 0 && CheckedCell.X < MapWidth && CheckedCell.Y >= 0 && CheckedCell.Y < MapHeight)
 		{
-			if (Map[CheckedCell.Y * MapWidth + CheckedCell.X] == '#')
+			if (Map[CheckedCell.Y * MapWidth + CheckedCell.X] != '.')
 			{
 				HitData.DidHit = true;
+
+				HitData.Tile = Map[CheckedCell.Y * MapWidth + CheckedCell.X];
 
 				HitData.Location = Start + LookDir * HitData.Distance;
 				FVector2D Normal;
@@ -315,12 +320,16 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 
 void CalculateShading(Hit HitData, int x)
 {
+	if (!HitData.DidHit || HitData.Tile != '#')
+	{
+		HitData.Distance = (HitData.End - HitData.Start).Lenght();
+	}
 	// How many radians from horizon to hit ceiling
-	float AngleToCeiling = atanf(Player.Heigth / HitData.Distance) - Player.Rotation.Y;
+	float AngleToCeiling = atanf((1.0 - Player.Height) / HitData.Distance) - Player.Rotation.Y;
 	float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
 
 	// How many radians from horizon to hit floor
-	float AngleToFloor = atanf(Player.Heigth / HitData.Distance) + Player.Rotation.Y;
+	float AngleToFloor = atanf(Player.Height / HitData.Distance) + Player.Rotation.Y;
 	float PrecentageWallTakesOfBottomHalfScreen = AngleToFloor / (Player.vFOV / 2.0f);
 
 	// Calculate ceiling and floor size
@@ -343,7 +352,7 @@ void CalculateShading(Hit HitData, int x)
 			if (HitData.Distance <= Player.ViewDistance / 4.0f)			Shade = 0x2588;	// Very close
 			else if (HitData.Distance < Player.ViewDistance / 3.0f)		Shade = 0x2588;//0x2593;
 			else if (HitData.Distance < Player.ViewDistance / 2.0f)		Shade = 0x2588;//0x2592;
-			else if (HitData.Distance < Player.ViewDistance)			Shade = 0x2588;//0x2591;
+			else if (HitData.Distance < Player.ViewDistance - 0.1f)		Shade = 0x2588;//0x2591;
 			else														Shade = ' ';	// Too far away
 
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
@@ -385,7 +394,7 @@ void WallLighting(int x, int y, Hit& HitData)
 		}
 
 		float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
-		float PointHeight = 1.0f - Player.Heigth + HitData.Distance / tanf(RayAngle);
+		float PointHeight = 1.0f - Player.Height + HitData.Distance / tanf(RayAngle);
 		FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
 
 		Hit LightRay = LineTrace(HitData.Location, EndLoc);
@@ -418,7 +427,7 @@ void FloorLighting(int x, int y, Hit& HitData)
 	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - PrecentageOfBottomHalfScreen * (Player.vFOV / 2.0f);
 
 	// Floor location relative to the Player
-	float RelativeFloorLoc = tanf(RayAngle) * Player.Heigth;
+	float RelativeFloorLoc = tanf(RayAngle) * Player.Height;
 	// Direction from the Player towards FloorLoc
 	FVector2D FloorLocDirection = (HitData.Location - Player.Location).Normalize();
 	// Floor location in World Space

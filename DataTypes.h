@@ -78,6 +78,9 @@ struct Hit
 	FVector2D Location;
 	FVector2D Normal;
 	float Distance = 0.0f;
+	short Tile = ' ';
+	FVector2D Start;
+	FVector2D End;
 };
 
 /*enum COLOUR
