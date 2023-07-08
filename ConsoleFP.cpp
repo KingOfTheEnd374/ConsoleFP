@@ -210,7 +210,7 @@ void CalculatePixels()
 		// Direction vector of the ray
 		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
 
-		Hit Impact =  LineTrace(Player.Location, Player.Location + LookDir * Player.ViewDistance);
+		Hit Impact =  LineTrace(Player.Location, Player.Location + LookDir * (Player.ViewDistance + 0.1f));
 
 		CalculateShading(Impact, x);
 	}
@@ -352,7 +352,7 @@ void CalculateShading(Hit HitData, int x)
 			if (HitData.Distance <= Player.ViewDistance / 4.0f)			Shade = 0x2588;	// Very close
 			else if (HitData.Distance < Player.ViewDistance / 3.0f)		Shade = 0x2588;//0x2593;
 			else if (HitData.Distance < Player.ViewDistance / 2.0f)		Shade = 0x2588;//0x2592;
-			else if (HitData.Distance < Player.ViewDistance - 0.1f)		Shade = 0x2588;//0x2591;
+			else if (HitData.Distance < Player.ViewDistance)		Shade = 0x2588;//0x2591;
 			else														Shade = ' ';	// Too far away
 
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
