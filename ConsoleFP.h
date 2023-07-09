@@ -10,12 +10,16 @@ void HandleCollision(FVector2D& MovementVector);
 
 void CalculatePixels();
 
-Hit LineTrace(FVector2D Start, FVector2D End);
+Hit LineTrace(FVector2D Start, FVector2D End, bool OnlyWalls = false);
 
 void CalculateShading(Hit HitData, int x);
+
+short DrawTexture(FVector2D UV);
 
 void WallLighting(int x, int y, Hit& HitData);
 
 void FloorLighting(int x, int y, Hit& HitData);
+
+void RenderObjects(int x);
 
 void DrawUI();

@@ -1,5 +1,5 @@
 #include <iostream>
-#include <vector>
+//#include <vector>
 #include <algorithm>
 #include <chrono>
 using namespace std;
@@ -19,6 +19,11 @@ int MapWidth = 16;
 FVector2D SunDirection = FVector2D(1.0f, -1.0f).Normalize();
 
 PlayerObject Player(FVector2D(7.5f, 7.5f));
+
+Object* Objects[16];
+int ObjectsCount = 0;
+
+float DepthBuffer[200];
 
 class Display : public ConsoleDisplay
 {
@@ -45,7 +50,7 @@ int main()
 	Map += L"#..........##..."; //7
 	Map += L"#...#........#.."; //8
 	Map += L"#.............#."; //9
-	Map += L"#.......p......#"; //10
+	Map += L"#..............#"; //10
 	Map += L"#..............#"; //11
 	Map += L"#..............#"; //12
 	Map += L"#..............#"; //13
@@ -54,6 +59,10 @@ int main()
 
 	Console.CreateConsole(200, 100, 8, 8);
 	SetCursorPos(500, 500);
+
+	Objects[ObjectsCount] = new Object(FVector2D(8.5f, 10.5f));
+	ObjectsCount++;
+
 	Console.Start();
 
 	return 0;
@@ -63,7 +72,7 @@ void EventTick(float DeltaT)
 {
 	DeltaTime = DeltaT;
 
-	//SunDirection = FVector2D(cosf(0.08726f * DeltaTime) * SunDirection.X - sinf(0.08726f * DeltaTime) * SunDirection.Y, sinf(0.08726f * DeltaTime) * SunDirection.X + cosf(0.08726f * DeltaTime) * SunDirection.Y);
+	SunDirection = FVector2D(cosf(0.08726f * DeltaTime) * SunDirection.X - sinf(0.08726f * DeltaTime) * SunDirection.Y, sinf(0.08726f * DeltaTime) * SunDirection.X + cosf(0.08726f * DeltaTime) * SunDirection.Y);
 
 	HandleInput();
 
@@ -104,14 +113,14 @@ void HandleInput()
 	if (pos.y != 500)
 	{
 		Player.Rotation.Y += (pos.y - 500) * (-Player.MouseSensitivity * 0.01f/* * DeltaTime*/);
-		Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 4.0f, 3.14159f / 4.0f);
+		Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 2.0f, 3.14159f / 4.0f);
 	}
 	SetCursorPos(500, 500);
 
 	// Build and Destroy
 	if (GetAsyncKeyState((unsigned short)'F'))
 	{
-		Hit Destroy = LineTrace(Player.Location, Player.Location + LookDir * 1.0f);
+		Hit Destroy = LineTrace(Player.Location, Player.Location + LookDir * 1.0f, true);
 		Destroy.Location -= Destroy.Normal * 0.1f;
 		if (Destroy.DidHit && Map[(int)Destroy.Location.Y * MapWidth + (int)Destroy.Location.X] == '#')
 		{
@@ -121,7 +130,7 @@ void HandleInput()
 	if (GetAsyncKeyState((unsigned short)'R'))
 	{
 		FVector2D BuildLoc = Player.Location + LookDir * 1.41f;
-		Hit Build = LineTrace(Player.Location, BuildLoc);
+		Hit Build = LineTrace(Player.Location, BuildLoc, true);
 		if (!Build.DidHit && Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] == '.')
 		{
 			Map[(int)BuildLoc.Y * MapWidth + (int)BuildLoc.X] = '#';
@@ -210,13 +219,17 @@ void CalculatePixels()
 		// Direction vector of the ray
 		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
 
-		Hit Impact =  LineTrace(Player.Location, Player.Location + LookDir * (Player.ViewDistance + 0.1f));
+		Hit Impact =  LineTrace(Player.Location, Player.Location + LookDir * (Player.ViewDistance + 0.1f), true);
+
+		DepthBuffer[x] = Impact.Distance;
 
 		CalculateShading(Impact, x);
+
+		RenderObjects(x);
 	}
 }
 
-Hit LineTrace(FVector2D Start, FVector2D End)
+Hit LineTrace(FVector2D Start, FVector2D End, bool OnlyWalls)
 {
 	Hit HitData;
 
@@ -276,7 +289,7 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 
 		if (CheckedCell.X >= 0 && CheckedCell.X < MapWidth && CheckedCell.Y >= 0 && CheckedCell.Y < MapHeight)
 		{
-			if (Map[CheckedCell.Y * MapWidth + CheckedCell.X] != '.')
+			if ((!OnlyWalls && Map[CheckedCell.Y * MapWidth + CheckedCell.X] != '.') || (OnlyWalls && Map[CheckedCell.Y * MapWidth + CheckedCell.X] == '#'))
 			{
 				HitData.DidHit = true;
 
@@ -320,10 +333,10 @@ Hit LineTrace(FVector2D Start, FVector2D End)
 
 void CalculateShading(Hit HitData, int x)
 {
-	if (!HitData.DidHit || HitData.Tile != '#')
+	/*if (HitData.DidHit && HitData.Tile == 'p')
 	{
 		HitData.Distance = (HitData.End - HitData.Start).Lenght();
-	}
+	}*/
 	// How many radians from horizon to hit ceiling
 	float AngleToCeiling = atanf((1.0 - Player.Height) / HitData.Distance) - Player.Rotation.Y;
 	float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
@@ -376,10 +389,100 @@ void CalculateShading(Hit HitData, int x)
 	}
 }
 
+short DrawTexture(FVector2D UV)
+{
+	short Texture;
+	if (UV.X < 0.5f)
+	{
+		if (UV.Y < 0.5f)
+		{
+			Texture = 0x0007;
+		}
+		else
+		{
+			Texture = 0x000F;
+		}
+	}
+	else
+	{
+		if (UV.Y < 0.5f)
+		{
+			Texture = 0x000F;
+		}
+		else
+		{
+			Texture = 0x0007;
+		}
+	}
+
+	return Texture;
+}
+
 void WallLighting(int x, int y, Hit& HitData)
 {
 	// Find angle between SunDirection and Wall Normal
 	float AngleToSun = acosf(HitData.Normal * SunDirection);
+
+	FVector2D UV;
+
+	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+	float PointHeight = 1.0f - Player.Height + HitData.Distance / tanf(RayAngle);
+	UV.Y = PointHeight;
+
+	if (HitData.Normal.X > 0.9f)
+	{
+		UV.X = (int)HitData.Location.Y + 1.0f - HitData.Location.Y;
+	}
+	else if (HitData.Normal.X < -0.9f)
+	{
+		UV.X = HitData.Location.Y - (int)HitData.Location.Y;
+	}
+	else if (HitData.Normal.Y > 0.9f)
+	{
+		UV.X = HitData.Location.X - (int)HitData.Location.X;
+	}
+	else if (HitData.Normal.Y < -0.9f)
+	{
+		UV.X = (int)HitData.Location.X + 1.0f - HitData.Location.X;
+	}
+
+	if (HitData.Tile == '#')
+	{
+		if (UV.X < 0.5f)
+		{
+			if (UV.Y < 0.5f)
+			{
+				Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2588;
+			}
+			else
+			{
+				Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2593;
+			}
+		}
+		else
+		{
+			if (UV.Y < 0.5f)
+			{
+				Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2593;
+			}
+			else
+			{
+				Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2588;
+			}
+		}
+	}
+	else if (HitData.Tile == 'p')
+	{
+		if (0.4f < UV.X && UV.X < 0.6f)
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
+		}
+		else
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = ' ';
+		}
+	}
+	
 
 	// If angle is smaller than 90 degrees, this side is lit
 	if (3.14f / 2.0f > AngleToSun)
@@ -397,8 +500,8 @@ void WallLighting(int x, int y, Hit& HitData)
 		float PointHeight = 1.0f - Player.Height + HitData.Distance / tanf(RayAngle);
 		FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
 
-		Hit LightRay = LineTrace(HitData.Location, EndLoc);
-		if (LightRay.DidHit)
+		Hit LightRay = LineTrace(HitData.Location, EndLoc, true);
+		if (LightRay.DidHit && LightRay.Tile == '#')
 		{
 			if (LightRay.Distance <= PointHeight)
 			{
@@ -433,9 +536,35 @@ void FloorLighting(int x, int y, Hit& HitData)
 	// Floor location in World Space
 	FVector2D FloorLoc = Player.Location + FloorLocDirection * RelativeFloorLoc;
 
+	FVector2D UV;
+	UV.X = FloorLoc.X - (int)FloorLoc.X;
+	UV.Y = FloorLoc.Y - (int)FloorLoc.Y;
+	if (UV.X < 0.5f)
+	{
+		if (UV.Y < 0.5f)
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = '#';
+		}
+		else
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = '@';
+		}
+	}
+	else
+	{
+		if (UV.Y < 0.5f)
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = '@';
+		}
+		else
+		{
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = '#';
+		}
+	}
+
 	FVector2D EndLoc = FloorLoc + SunDirection * 1.0f;
 
-	Hit LightRay = LineTrace(FloorLoc, EndLoc);
+	Hit LightRay = LineTrace(FloorLoc, EndLoc, true);
 	if (LightRay.DidHit)
 	{
 		Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
@@ -443,6 +572,57 @@ void FloorLighting(int x, int y, Hit& HitData)
 	else
 	{
 		Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
+	}
+}
+
+void RenderObjects(int x)
+{
+	for (int i = 0; i < ObjectsCount; i++)
+	{
+		FVector2D ObjLoc = Objects[i]->Location;
+
+		float Distance = (ObjLoc - Player.Location).Lenght();
+
+		if (DepthBuffer[x] < Distance)
+		{
+			return;
+		}
+
+		//FVector2D LookDir(cosf(Player.Rotation.X), sinf(Player.Rotation.X));
+
+		// For each Screen "pixel", calculate a ray angle
+		float RayAngle = (Player.Rotation.X - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV);
+
+		// Direction vector of the ray
+		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
+
+		float Angle = acosf(LookDir * (ObjLoc - Player.Location).Normalize()) /** 57.2957795f*/ / 2.0f;
+		float distFromCenter = tanf(Angle) * Distance * 2.0f;
+
+		float AngleToCeiling = atanf((1.0 - Player.Height) / Distance) - Player.Rotation.Y;
+		float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
+
+		// How many radians from horizon to hit floor
+		float AngleToFloor = atanf(Player.Height / Distance) + Player.Rotation.Y;
+		float PrecentageWallTakesOfBottomHalfScreen = AngleToFloor / (Player.vFOV / 2.0f);
+
+		// Calculate ceiling and floor size
+		int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfTopHalfScreen;
+		int Floor = Console.ScreenHeight / 2.0f + (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfBottomHalfScreen;
+
+		if (distFromCenter < 0.05f/*Angle / 2.0f < 1.0f/*Player.FOV / 2.0f*/)
+		{
+			for (int y = 0; y < Console.ScreenHeight; y++)
+			{
+				if (Ceiling <= y && y <= Floor)
+				{
+					Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 'p';
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = DrawTexture(FVector2D());
+				}
+			}
+		}
+
+		Console.test = Angle;
 	}
 }
 
