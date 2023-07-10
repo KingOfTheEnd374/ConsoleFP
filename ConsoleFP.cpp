@@ -20,6 +20,8 @@ FVector2D SunDirection = FVector2D(1.0f, -1.0f).Normalize();
 
 PlayerObject Player(FVector2D(7.5f, 7.5f));
 
+bool Debug = false;
+
 Object* Objects[16];
 int ObjectsCount = 0;
 
@@ -63,6 +65,9 @@ int main()
 	Objects[ObjectsCount] = new Object(FVector2D(8.5f, 10.5f));
 	ObjectsCount++;
 
+	Objects[ObjectsCount] = new Object(FVector2D(8.5f, 11.5f));
+	ObjectsCount++;
+
 	Console.Start();
 
 	return 0;
@@ -87,35 +92,44 @@ void HandleInput()
 	FVector2D LookDir = FVector2D(cosf(Player.Rotation.X), sinf(Player.Rotation.X));
 
 	// Rotation
-	if (GetAsyncKeyState(VK_LEFT/*(unsigned short)'Q'*/))
+	if (GetAsyncKeyState(VK_LEFT) || GetAsyncKeyState((unsigned short)'Q'))
 	{
 		Player.Rotation.X += -Player.Sensitivity * DeltaTime;
 	}
-	if (GetAsyncKeyState(VK_RIGHT/*(unsigned short)'E'*/))
+	if (GetAsyncKeyState(VK_RIGHT) || GetAsyncKeyState((unsigned short)'E'))
 	{
 		Player.Rotation.X += Player.Sensitivity * DeltaTime;
 	}
-	if (GetAsyncKeyState(VK_UP/*(unsigned short)'Z'*/))
+	if (GetAsyncKeyState(VK_UP) || GetAsyncKeyState((unsigned short)'Z'))
 	{
 		Player.Rotation.Y += +Player.Sensitivity * DeltaTime;
 	}
-	if (GetAsyncKeyState(VK_DOWN/*(unsigned short)'X'*/))
+	if (GetAsyncKeyState(VK_DOWN) || GetAsyncKeyState((unsigned short)'X'))
 	{
 		Player.Rotation.Y += -Player.Sensitivity * DeltaTime;
 	}
 
-	POINT pos;
+	if (GetAsyncKeyState((unsigned short)'G'))
+	{
+		Debug = true;
+	}
+	if (GetAsyncKeyState((unsigned short)'H'))
+	{
+		Debug = false;
+	}
+
+	/*POINT pos;
 	GetCursorPos(&pos);
 	if (pos.x != 500)
 	{
-		Player.Rotation.X += (pos.x - 500) * (Player.MouseSensitivity * 0.01f/* * DeltaTime*/);
+		Player.Rotation.X += (pos.x - 500) * (Player.MouseSensitivity * 0.01f);
 	}
 	if (pos.y != 500)
 	{
-		Player.Rotation.Y += (pos.y - 500) * (-Player.MouseSensitivity * 0.01f/* * DeltaTime*/);
-		Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 2.0f, 3.14159f / 4.0f);
+		Player.Rotation.Y += (pos.y - 500) * (-Player.MouseSensitivity * 0.01f);
 	}
-	SetCursorPos(500, 500);
+	Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 2.0f, 3.14159f / 4.0f);
+	SetCursorPos(500, 500);*/
 
 	// Build and Destroy
 	if (GetAsyncKeyState((unsigned short)'F'))
@@ -333,10 +347,6 @@ Hit LineTrace(FVector2D Start, FVector2D End, bool OnlyWalls)
 
 void CalculateShading(Hit HitData, int x)
 {
-	/*if (HitData.DidHit && HitData.Tile == 'p')
-	{
-		HitData.Distance = (HitData.End - HitData.Start).Lenght();
-	}*/
 	// How many radians from horizon to hit ceiling
 	float AngleToCeiling = atanf((1.0 - Player.Height) / HitData.Distance) - Player.Rotation.Y;
 	float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
@@ -360,62 +370,101 @@ void CalculateShading(Hit HitData, int x)
 		{
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = ' ';
 		}
-		else if (y >= Ceiling && y <= Floor)
+		else if (y >= Ceiling && y <= Floor && HitData.Distance < Player.ViewDistance)
 		{
-			if (HitData.Distance <= Player.ViewDistance / 4.0f)			Shade = 0x2588;	// Very close
-			else if (HitData.Distance < Player.ViewDistance / 3.0f)		Shade = 0x2588;//0x2593;
-			else if (HitData.Distance < Player.ViewDistance / 2.0f)		Shade = 0x2588;//0x2592;
-			else if (HitData.Distance < Player.ViewDistance)		Shade = 0x2588;//0x2591;
-			else														Shade = ' ';	// Too far away
-
+			Shade = 0x2588;
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
-
 			WallLighting(x, y, HitData);
+		}
+		else if (y > Floor)
+		{
+			Shade = 0x2588;//'#';
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
+			FloorLighting(x, y, HitData);
 		}
 		else
 		{
-			Shade = '#';
-			/*float b = 1.0f - ((y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f));
-			if (b < 0.75f)		Shade = '#';//'#';
-			else if (b < 0.85f)	Shade = '#';//'x';
-			else if (b < 0.9f)	Shade = '#';//'.';
-			else if (b < 0.95f)	Shade = '#';//'-';
-			else				Shade = ' ';*/
-
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
-
-			FloorLighting(x, y, HitData);
 		}
 	}
 }
 
-short DrawTexture(FVector2D UV)
+short DrawTexture(FVector2D UV, bool a)
 {
-	short Texture;
-	if (UV.X < 0.5f)
+	int X = 4, Y = 4;
+	short* Texture = new short[X * Y];
+	short TextureOut;
+
+	/*if (a)
 	{
-		if (UV.Y < 0.5f)
-		{
-			Texture = 0x0007;
-		}
-		else
-		{
-			Texture = 0x000F;
-		}
-	}
-	else
-	{
-		if (UV.Y < 0.5f)
-		{
-			Texture = 0x000F;
-		}
-		else
-		{
-			Texture = 0x0007;
-		}
+
 	}
 
-	return Texture;
+	else
+	{*/
+	Texture[0] = 0x000F;
+	Texture[1] = 0x0007;
+	Texture[2] = 0x000F;
+	Texture[3] = 0x0007;
+	Texture[4] = 0x0007;
+	Texture[5] = 0x000F;
+	Texture[6] = 0x0007;
+	Texture[7] = 0x000F;
+	Texture[8] = 0x000F;
+	Texture[9] = 0x0007;
+	Texture[10] = 0x000F;
+	Texture[11] = 0x0007;
+	Texture[12] = 0x0007;
+	Texture[13] = 0x000F;
+	Texture[14] = 0x0007;
+	Texture[15] = 0x000F;
+		/*Texture[0] = 0x2588;
+		Texture[1] = 0x2593;
+		Texture[2] = 0x2588;
+		Texture[3] = 0x2593;
+		Texture[4] = 0x2593;
+		Texture[5] = 0x2588;
+		Texture[6] = 0x2593;
+		Texture[7] = 0x2588;
+		Texture[8] = 0x2588;
+		Texture[9] = 0x2593;
+		Texture[10] = 0x2588;
+		Texture[11] = 0x2593;
+		Texture[12] = 0x2593;
+		Texture[13] = 0x2588;
+		Texture[14] = 0x2593;
+		Texture[15] = 0x2588;*/
+	//}
+
+	/*Texture[0] = 0x2593;
+	Texture[1] = 0x2588;
+	Texture[2] = 0x2588;
+	Texture[3] = 0x2593;
+	Texture[4] = 0x2588;
+	Texture[5] = 0x2593;
+	Texture[6] = 0x2593;
+	Texture[7] = 0x2588;
+	Texture[8] = 0x2588;
+	Texture[9] = 0x2593;
+	Texture[10] = 0x2593;
+	Texture[11] = 0x2588;
+	Texture[12] = 0x2593;
+	Texture[13] = 0x2588;
+	Texture[14] = 0x2588;
+	Texture[15] = 0x2593;*/
+
+	TextureOut = Texture[(int)(UV.X * X) + (int)(UV.Y * Y) * X];
+
+	delete[] Texture;
+
+	//DEBUG UVs
+	if (Debug)
+	{
+		char c = '0' + (int)(UV.X / 0.1f);
+		return c;
+	}
+
+	return TextureOut;
 }
 
 void WallLighting(int x, int y, Hit& HitData)
@@ -445,55 +494,18 @@ void WallLighting(int x, int y, Hit& HitData)
 	{
 		UV.X = (int)HitData.Location.X + 1.0f - HitData.Location.X;
 	}
-
-	if (HitData.Tile == '#')
-	{
-		if (UV.X < 0.5f)
-		{
-			if (UV.Y < 0.5f)
-			{
-				Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2588;
-			}
-			else
-			{
-				Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2593;
-			}
-		}
-		else
-		{
-			if (UV.Y < 0.5f)
-			{
-				Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2593;
-			}
-			else
-			{
-				Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2588;
-			}
-		}
-	}
-	else if (HitData.Tile == 'p')
-	{
-		if (0.4f < UV.X && UV.X < 0.6f)
-		{
-			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
-		}
-		else
-		{
-			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = ' ';
-		}
-	}
-	
+	Console.Screen[y * Console.ScreenWidth + x].Attributes = DrawTexture(UV);
 
 	// If angle is smaller than 90 degrees, this side is lit
 	if (3.14f / 2.0f > AngleToSun)
 	{
 		if (abs(HitData.Normal.X) > 0.9f)
 		{
-			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0007;
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2588;
 		}
 		else
 		{
-			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2593;
 		}
 
 		float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
@@ -505,7 +517,7 @@ void WallLighting(int x, int y, Hit& HitData)
 		{
 			if (LightRay.Distance <= PointHeight)
 			{
-				Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
+				Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2592;
 			}
 		}
 	}
@@ -513,11 +525,11 @@ void WallLighting(int x, int y, Hit& HitData)
 	{
 		if (abs(HitData.Normal.Y) > 0.9f)
 		{
-			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0001;
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2592;
 		}
 		else
 		{
-			Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x0009;
+			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2591;
 		}
 	}
 }
@@ -539,39 +551,19 @@ void FloorLighting(int x, int y, Hit& HitData)
 	FVector2D UV;
 	UV.X = FloorLoc.X - (int)FloorLoc.X;
 	UV.Y = FloorLoc.Y - (int)FloorLoc.Y;
-	if (UV.X < 0.5f)
-	{
-		if (UV.Y < 0.5f)
-		{
-			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = '#';
-		}
-		else
-		{
-			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = '@';
-		}
-	}
-	else
-	{
-		if (UV.Y < 0.5f)
-		{
-			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = '@';
-		}
-		else
-		{
-			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = '#';
-		}
-	}
+
+	Console.Screen[y * Console.ScreenWidth + x].Attributes = DrawTexture(UV);
 
 	FVector2D EndLoc = FloorLoc + SunDirection * 1.0f;
 
 	Hit LightRay = LineTrace(FloorLoc, EndLoc, true);
 	if (LightRay.DidHit)
 	{
-		Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000B;
+		Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2592;
 	}
 	else
 	{
-		Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
+		Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2588;
 	}
 }
 
@@ -596,8 +588,12 @@ void RenderObjects(int x)
 		// Direction vector of the ray
 		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
 
-		float Angle = acosf(LookDir * (ObjLoc - Player.Location).Normalize()) /** 57.2957795f*/ / 2.0f;
-		float distFromCenter = tanf(Angle) * Distance * 2.0f;
+		float Angle = acosf(LookDir * (ObjLoc - Player.Location).Normalize()) /** 57.2957795f*/;
+		if (Angle > 3.14159f / 2.0f)
+		{
+			return;
+		}
+		float distFromCenter = tanf(Angle / 2.0f) * Distance * 2.0f;
 
 		float AngleToCeiling = atanf((1.0 - Player.Height) / Distance) - Player.Rotation.Y;
 		float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
@@ -610,19 +606,17 @@ void RenderObjects(int x)
 		int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfTopHalfScreen;
 		int Floor = Console.ScreenHeight / 2.0f + (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfBottomHalfScreen;
 
-		if (distFromCenter < 0.05f/*Angle / 2.0f < 1.0f/*Player.FOV / 2.0f*/)
+		if (distFromCenter < 0.05f)
 		{
 			for (int y = 0; y < Console.ScreenHeight; y++)
 			{
 				if (Ceiling <= y && y <= Floor)
 				{
-					Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 'p';
-					Console.Screen[y * Console.ScreenWidth + x].Attributes = DrawTexture(FVector2D());
+					Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = DrawTexture(FVector2D());
+					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000A;
 				}
 			}
 		}
-
-		Console.test = Angle;
 	}
 }
 
