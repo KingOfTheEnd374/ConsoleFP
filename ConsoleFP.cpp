@@ -240,20 +240,27 @@ void HandleCollision(FVector2D& MovementVector)
 
 void CalculatePixels()
 {
+	float ProjectionPlaneDistance = (Console.ScreenWidth / 2.0f) / tanf(Player.FOV / 2.0f);
+
 	for (int x = 0; x < Console.ScreenWidth; x++)
 	{
 		// For each Screen "pixel", calculate a ray angle
-		float RayAngle = (Player.Rotation.X - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV);
+		//float RayAngle = (Player.Rotation.X - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV);
+		float ScreenSpaceAngle = atanf((x - Console.ScreenWidth / 2.0f) / ProjectionPlaneDistance);
+		float RayAngle = (Player.Rotation.X + ScreenSpaceAngle);
 
 		// Direction vector of the ray
 		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
 
-		Hit Impact =  LineTrace(Player.Location, Player.Location + LookDir * (Player.ViewDistance + 0.1f), true);
+		Hit Impact = LineTrace(Player.Location, Player.Location + LookDir * (Player.ViewDistance + 0.1f), true);
 
-		Impact.Distance = Impact.Distance * cosf(abs(( - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV)));
+		if (Impact.DidHit)
+		{
+			Impact.Distance = Impact.Distance * cosf(ScreenSpaceAngle);
+		}
 
 		DepthBuffer[x] = Impact.Distance;
-
+		
 		CalculateShading(Impact, x);
 	}
 }
@@ -362,17 +369,37 @@ Hit LineTrace(FVector2D Start, FVector2D End, bool OnlyWalls)
 
 void CalculateShading(Hit HitData, int x)
 {
-	// How many radians from horizon to hit ceiling
-	float AngleToCeiling = atanf((1.0 - Player.Height) / HitData.Distance) - Player.Rotation.Y;
-	float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
+	float ProjectionPlaneDistance = (Console.ScreenHeight / 2.0f) / tanf(Player.vFOV / 2.0f);
+	// How many radians from view center to hit ceiling
+	float AngleToCeiling = atanf((1.0 - Player.Height) / (HitData.Distance)) - Player.Rotation.Y;
 
-	// How many radians from horizon to hit floor
-	float AngleToFloor = atanf(Player.Height / HitData.Distance) + Player.Rotation.Y;
-	float PrecentageWallTakesOfBottomHalfScreen = AngleToFloor / (Player.vFOV / 2.0f);
+	//float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
+	int Ceiling;
+	if (AngleToCeiling <= Player.vFOV / 2.0f)
+	{
+		Ceiling = ProjectionPlaneDistance * tanf(-AngleToCeiling) + Console.ScreenHeight / 2.0f;
+	}
+	else
+	{
+		Ceiling = -1;
+	}
+
+	// How many radians from view center to hit floor
+	float AngleToFloor = atanf(Player.Height / (HitData.Distance)) + Player.Rotation.Y;
+	//float PrecentageWallTakesOfBottomHalfScreen = AngleToFloor / (Player.vFOV / 2.0f);
+	int Floor;
+	if (AngleToFloor <= Player.vFOV / 2.0f)
+	{
+		Floor = ProjectionPlaneDistance * tanf(AngleToFloor) + Console.ScreenHeight / 2.0f;
+	}
+	else
+	{
+		Floor = Console.ScreenHeight;
+	}
 
 	// Calculate ceiling and floor size
-	int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfTopHalfScreen;
-	int Floor = Console.ScreenHeight / 2.0f + (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfBottomHalfScreen;
+	//int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfTopHalfScreen;
+	//int Floor = Console.ScreenHeight / 2.0f + (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfBottomHalfScreen;
 
 	short Shade = ' ';
 
@@ -394,7 +421,7 @@ void CalculateShading(Hit HitData, int x)
 		{
 			Shade = 0x2587;
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
-			//FloorLighting(x, y, HitData);
+			FloorLighting(x, y, HitData);
 		}
 		else
 		{
