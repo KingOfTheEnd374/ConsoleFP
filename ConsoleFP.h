@@ -20,6 +20,6 @@ void WallLighting(int x, int y, Hit& HitData);
 
 void FloorLighting(int x, int y, Hit& HitData);
 
-void RenderObjects(int x);
+void RenderObjects();
 
 void DrawUI();
