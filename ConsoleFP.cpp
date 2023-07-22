@@ -143,7 +143,7 @@ void HandleInput()
 	{
 		Player.Rotation.Y += (pos.y - 500) * (-Player.MouseSensitivity * 0.01f);
 	}
-	Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 4.0f, 3.14159f / 4.0f);
+	Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 6.0f, 3.14159f / 6.0f);
 	SetCursorPos(500, 500);
 
 	// Build and Destroy
