@@ -11,8 +11,8 @@ public:
 	float MouseSensitivity = 0.3f;
 	float ViewDistance = 32.0f;
 
-	float Height = .8f;
-	float vFOV = 3.14159f / 4.0f;
+	float Height = 0.8f;
+	float vFOV = 3.14159f / 3.39f;
 
 	float Speed = 5.0f;
 	float Radius = 0.25f;

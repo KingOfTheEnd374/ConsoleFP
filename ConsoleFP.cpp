@@ -21,6 +21,7 @@ FVector2D SunDirection = FVector2D(1.0f, -1.0f).Normalize();
 PlayerObject Player(FVector2D(7.5f, 7.5f));
 
 bool Debug = false;
+bool Debug2 = false;
 
 Object* Objects[16];
 int ObjectsCount = 0;
@@ -131,6 +132,15 @@ void HandleInput()
 	if (GetAsyncKeyState((unsigned short)'H'))
 	{
 		Debug = false;
+	}
+
+	if (GetAsyncKeyState((unsigned short)'B'))
+	{
+		Debug2 = true;
+	}
+	if (GetAsyncKeyState((unsigned short)'N'))
+	{
+		Debug2 = false;
 	}
 
 	POINT pos;
@@ -247,7 +257,7 @@ void CalculatePixels()
 		// For each Screen "pixel", calculate a ray angle
 		//float RayAngle = (Player.Rotation.X - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV);
 		float ScreenSpaceAngle = atanf((x - Console.ScreenWidth / 2.0f) / ProjectionPlaneDistance);
-		float RayAngle = (Player.Rotation.X + ScreenSpaceAngle);
+		float RayAngle = Player.Rotation.X + ScreenSpaceAngle;
 
 		// Direction vector of the ray
 		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
@@ -475,11 +485,11 @@ short DrawTexture(FVector2D UV, bool a)
 	delete[] Texture;
 
 	//DEBUG UVs
-	/*if (Debug)
+	if (Debug)
 	{
-		char c = '0' + (int)(UV.X / 0.1f);
+		char c = '0' + (int)(UV.Y / 0.1f);
 		return c;
-	}*/
+	}
 
 	
 
@@ -492,10 +502,18 @@ void WallLighting(int x, int y, Hit& HitData)
 	float AngleToSun = acosf(HitData.Normal * SunDirection);
 
 	FVector2D UV;
+	
+	// Old and wrong implementation
+	//float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+	
+	float ProjectionPlaneDistance = (Console.ScreenHeight / 2.0f) / tanf(Player.vFOV / 2.0f);
+	float ScreenSpaceAngle = atanf((y - Console.ScreenHeight / 2.0f) / ProjectionPlaneDistance);
+	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - ScreenSpaceAngle;
 
-	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
 	float PointHeight = 1.0f - Player.Height + HitData.Distance / tanf(RayAngle);
-	UV.Y = min(PointHeight, 0.9999f);	// Floating precision error?
+
+	// Floating precision error might make it 1.0f or bigger
+	UV.Y = min(PointHeight, 0.9999f);
 
 	if (HitData.Normal.X > 0.9f)
 	{
@@ -556,17 +574,32 @@ void WallLighting(int x, int y, Hit& HitData)
 
 void FloorLighting(int x, int y, Hit& HitData)
 {
+	/*
 	// y is always bigger than half ScreenHeight, due to it being bottom half of the screen
 	float PrecentageOfBottomHalfScreen = (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f);
 	// Multiply the precentage with player bottom half vFOV and subtract it from angle between Floor and Player look direction
 	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - PrecentageOfBottomHalfScreen * (Player.vFOV / 2.0f);
+	*/
+
+	float ProjectionPlaneDistance2 = (Console.ScreenWidth / 2.0f) / tanf(Player.FOV / 2.0f);
+	float ScreenSpaceAngle2 = atanf((x - Console.ScreenWidth / 2.0f) / ProjectionPlaneDistance2);
+
+	if (Debug2 && y > 15)
+	{
+		int a = 0;
+	}
+
+	float ProjectionPlaneDistance = (Console.ScreenHeight / 2.0f) / tanf(Player.vFOV / 2.0f);
+	float ScreenSpaceAngle = atanf((y - Console.ScreenHeight / 2.0f) / ProjectionPlaneDistance);
+	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - ScreenSpaceAngle;
 
 	// Floor location relative to the Player
-	float RelativeFloorLoc = tanf(RayAngle) * Player.Height;
+	float RelativeFloorLoc = tanf(RayAngle) * Player.Height / cosf(ScreenSpaceAngle2);
 	// Direction from the Player towards FloorLoc
 	FVector2D FloorLocDirection = (HitData.Location - Player.Location).Normalize();
 	// Floor location in World Space
 	FVector2D FloorLoc = Player.Location + FloorLocDirection * RelativeFloorLoc;
+
 
 	FVector2D UV;
 	UV.X = FloorLoc.X - (int)FloorLoc.X; // If I want to fix glitchy textures in out of bounds, min the value to 0.0f for both X and Y
