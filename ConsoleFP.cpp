@@ -18,14 +18,21 @@ int MapHeight = 16;
 int MapWidth = 16;
 FVector2D SunDirection = FVector2D(1.0f, -1.0f).Normalize();
 
+const int ResX = 200;
+const int ResY = 100;
+
 PlayerObject Player(FVector2D(7.5f, 7.5f));
 
 bool Debug = false;
+bool Debug2 = false;
 
 Object* Objects[16];
 int ObjectsCount = 0;
 
-float DepthBuffer[200];
+float ProjectionPlaneDistance = 0.0f;
+float ScreenSpaceAnglesX[ResX];
+float ScreenSpaceAnglesY[ResY];
+float DepthBuffer[ResX];
 
 class Display : public ConsoleDisplay
 {
@@ -59,18 +66,39 @@ int main()
 	Map += L"#..............#"; //14
 	Map += L"#######...######"; //15
 
-	Console.CreateConsole(200, 100, 8, 8);
+	Console.CreateConsole(ResX, ResY, 8, 8);
 	SetCursorPos(500, 500);
+
+	InitScreenSpace();
+
+	Player.vFOV = 2.0f * atanf((Console.ScreenHeight / 2.0f) / ProjectionPlaneDistance);
 
 	Objects[ObjectsCount] = new Object(FVector2D(8.5f, 10.5f));
 	ObjectsCount++;
+	Objects[0]->color = 0x000C;
 
 	Objects[ObjectsCount] = new Object(FVector2D(8.5f, 11.5f));
 	ObjectsCount++;
+	Objects[1]->color = 0x000B;
 
 	Console.Start();
 
 	return 0;
+}
+
+void InitScreenSpace()
+{
+	ProjectionPlaneDistance = (Console.ScreenWidth / 2.0f) / tanf(Player.FOV / 2.0f);
+
+	for (int x = 0; x < ResX; x++)
+	{
+		ScreenSpaceAnglesX[x] = atanf((x - Console.ScreenWidth / 2.0f) / ProjectionPlaneDistance);
+	}
+
+	for (int y = 0; y < ResY; y++)
+	{
+		ScreenSpaceAnglesY[y] = atanf((y - Console.ScreenHeight / 2.0f) / ProjectionPlaneDistance);
+	}
 }
 
 void EventTick(float DeltaT)
@@ -84,8 +112,9 @@ void EventTick(float DeltaT)
 	CalculatePixels();
 
 	DrawUI();
-}
 
+	RenderObjects();
+}
 
 void HandleInput()
 {
@@ -109,6 +138,17 @@ void HandleInput()
 		Player.Rotation.Y += -Player.Sensitivity * DeltaTime;
 	}
 
+	if (GetAsyncKeyState((unsigned short)'C'))
+	{
+		Player.Height = 0.3f;
+		Player.Speed = 1.5f;
+	}
+	else
+	{
+		Player.Height = 0.8f;
+		Player.Speed = 5.0f;
+	}
+
 	if (GetAsyncKeyState((unsigned short)'G'))
 	{
 		Debug = true;
@@ -118,7 +158,16 @@ void HandleInput()
 		Debug = false;
 	}
 
-	/*POINT pos;
+	if (GetAsyncKeyState((unsigned short)'B'))
+	{
+		Debug2 = true;
+	}
+	if (GetAsyncKeyState((unsigned short)'N'))
+	{
+		Debug2 = false;
+	}
+
+	POINT pos;
 	GetCursorPos(&pos);
 	if (pos.x != 500)
 	{
@@ -128,8 +177,8 @@ void HandleInput()
 	{
 		Player.Rotation.Y += (pos.y - 500) * (-Player.MouseSensitivity * 0.01f);
 	}
-	Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 2.0f, 3.14159f / 4.0f);
-	SetCursorPos(500, 500);*/
+	Player.Rotation.Y = clamp(Player.Rotation.Y, -3.14159f / 6.0f, 3.14159f / 6.0f);
+	SetCursorPos(500, 500);
 
 	// Build and Destroy
 	if (GetAsyncKeyState((unsigned short)'F'))
@@ -220,26 +269,6 @@ void HandleCollision(FVector2D& MovementVector)
 		}
 
 		Player.Location = MoveLocation;
-	}
-}
-
-void CalculatePixels()
-{
-	for (int x = 0; x < Console.ScreenWidth; x++)
-	{
-		// For each Screen "pixel", calculate a ray angle
-		float RayAngle = (Player.Rotation.X - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV);
-
-		// Direction vector of the ray
-		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
-
-		Hit Impact =  LineTrace(Player.Location, Player.Location + LookDir * (Player.ViewDistance + 0.1f), true);
-
-		DepthBuffer[x] = Impact.Distance;
-
-		CalculateShading(Impact, x);
-
-		RenderObjects(x);
 	}
 }
 
@@ -345,20 +374,36 @@ Hit LineTrace(FVector2D Start, FVector2D End, bool OnlyWalls)
 	return HitData;
 }
 
+void CalculatePixels()
+{
+	for (int x = 0; x < Console.ScreenWidth; x++)
+	{
+		// For each Screen "pixel", calculate a ray angle
+		float RayAngle = Player.Rotation.X + ScreenSpaceAnglesX[x];
+
+		// Direction vector of the ray
+		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
+
+		Hit Impact = LineTrace(Player.Location, Player.Location + LookDir * (Player.ViewDistance + 0.1f), true);
+
+		if (Impact.DidHit)
+		{
+			// Adjust distance to remove distortion
+			Impact.Distance = Impact.Distance * cosf(ScreenSpaceAnglesX[x]);
+		}
+
+		DepthBuffer[x] = Impact.Distance;
+		
+		CalculateShading(Impact, x);
+	}
+}
+
 void CalculateShading(Hit HitData, int x)
 {
-	// How many radians from horizon to hit ceiling
-	float AngleToCeiling = atanf((1.0 - Player.Height) / HitData.Distance) - Player.Rotation.Y;
-	float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
+	// MOVE Ceiling and Floor TO SEPARATE FUNCTION
 
-	// How many radians from horizon to hit floor
-	float AngleToFloor = atanf(Player.Height / HitData.Distance) + Player.Rotation.Y;
-	float PrecentageWallTakesOfBottomHalfScreen = AngleToFloor / (Player.vFOV / 2.0f);
-
-	// Calculate ceiling and floor size
-	int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfTopHalfScreen;
-	int Floor = Console.ScreenHeight / 2.0f + (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfBottomHalfScreen;
-	//int Floor = Console.ScreenHeight - Ceiling;
+	int Wall = GetWallStart(HitData);
+	int Floor = GetFloorStart(HitData);
 
 	short Shade = ' ';
 
@@ -366,22 +411,26 @@ void CalculateShading(Hit HitData, int x)
 	{
 		Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000F;
 
-		if (y < Ceiling)
+		// Ceiling
+		if (y < Wall)
 		{
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = ' ';
 		}
-		else if (y >= Ceiling && y <= Floor && HitData.Distance < Player.ViewDistance)
+		// Wall
+		else if (y >= Wall && y <= Floor && HitData.Distance < Player.ViewDistance)
 		{
 			Shade = 0x2588;
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
 			WallLighting(x, y, HitData);
 		}
+		// Floor
 		else if (y > Floor)
 		{
-			Shade = 0x2588;//'#';
+			Shade = 0x2587;
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
 			FloorLighting(x, y, HitData);
 		}
+		// Sky when no wall?
 		else
 		{
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = Shade;
@@ -389,82 +438,32 @@ void CalculateShading(Hit HitData, int x)
 	}
 }
 
-short DrawTexture(FVector2D UV, bool a)
+int GetWallStart(Hit HitData)
 {
-	int X = 4, Y = 4;
-	short* Texture = new short[X * Y];
-	short TextureOut;
-
-	/*if (a)
+	// How many radians from view center to hit the wall top
+	float AngleToWall = atanf((1.0 - Player.Height) / (HitData.Distance)) - Player.Rotation.Y;
+	if (AngleToWall <= Player.vFOV / 2.0f)
 	{
-
+		return ProjectionPlaneDistance * tanf(-AngleToWall) + Console.ScreenHeight / 2.0f;
 	}
-
 	else
-	{*/
-	Texture[0] = 0x000F;
-	Texture[1] = 0x0007;
-	Texture[2] = 0x000F;
-	Texture[3] = 0x0007;
-	Texture[4] = 0x0007;
-	Texture[5] = 0x000F;
-	Texture[6] = 0x0007;
-	Texture[7] = 0x000F;
-	Texture[8] = 0x000F;
-	Texture[9] = 0x0007;
-	Texture[10] = 0x000F;
-	Texture[11] = 0x0007;
-	Texture[12] = 0x0007;
-	Texture[13] = 0x000F;
-	Texture[14] = 0x0007;
-	Texture[15] = 0x000F;
-		/*Texture[0] = 0x2588;
-		Texture[1] = 0x2593;
-		Texture[2] = 0x2588;
-		Texture[3] = 0x2593;
-		Texture[4] = 0x2593;
-		Texture[5] = 0x2588;
-		Texture[6] = 0x2593;
-		Texture[7] = 0x2588;
-		Texture[8] = 0x2588;
-		Texture[9] = 0x2593;
-		Texture[10] = 0x2588;
-		Texture[11] = 0x2593;
-		Texture[12] = 0x2593;
-		Texture[13] = 0x2588;
-		Texture[14] = 0x2593;
-		Texture[15] = 0x2588;*/
-	//}
-
-	/*Texture[0] = 0x2593;
-	Texture[1] = 0x2588;
-	Texture[2] = 0x2588;
-	Texture[3] = 0x2593;
-	Texture[4] = 0x2588;
-	Texture[5] = 0x2593;
-	Texture[6] = 0x2593;
-	Texture[7] = 0x2588;
-	Texture[8] = 0x2588;
-	Texture[9] = 0x2593;
-	Texture[10] = 0x2593;
-	Texture[11] = 0x2588;
-	Texture[12] = 0x2593;
-	Texture[13] = 0x2588;
-	Texture[14] = 0x2588;
-	Texture[15] = 0x2593;*/
-
-	TextureOut = Texture[(int)(UV.X * X) + (int)(UV.Y * Y) * X];
-
-	delete[] Texture;
-
-	//DEBUG UVs
-	if (Debug)
 	{
-		char c = '0' + (int)(UV.X / 0.1f);
-		return c;
+		return -1;
 	}
+}
 
-	return TextureOut;
+int GetFloorStart(Hit HitData)
+{
+	// How many radians from view center to hit the floor top
+	float AngleToFloor = atanf(Player.Height / (HitData.Distance)) + Player.Rotation.Y;
+	if (AngleToFloor <= Player.vFOV / 2.0f)
+	{
+		return ProjectionPlaneDistance * tanf(AngleToFloor) + Console.ScreenHeight / 2.0f;
+	}
+	else
+	{
+		return Console.ScreenHeight;
+	}
 }
 
 void WallLighting(int x, int y, Hit& HitData)
@@ -473,10 +472,13 @@ void WallLighting(int x, int y, Hit& HitData)
 	float AngleToSun = acosf(HitData.Normal * SunDirection);
 
 	FVector2D UV;
+	
+	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - ScreenSpaceAnglesY[y];
 
-	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
 	float PointHeight = 1.0f - Player.Height + HitData.Distance / tanf(RayAngle);
-	UV.Y = PointHeight;
+
+	// Floating precision error might make it 1.0f or bigger
+	UV.Y = min(PointHeight, 0.9999f);
 
 	if (HitData.Normal.X > 0.9f)
 	{
@@ -494,6 +496,7 @@ void WallLighting(int x, int y, Hit& HitData)
 	{
 		UV.X = (int)HitData.Location.X + 1.0f - HitData.Location.X;
 	}
+
 	Console.Screen[y * Console.ScreenWidth + x].Attributes = DrawTexture(UV);
 
 	// If angle is smaller than 90 degrees, this side is lit
@@ -508,8 +511,6 @@ void WallLighting(int x, int y, Hit& HitData)
 			Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2593;
 		}
 
-		float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
-		float PointHeight = 1.0f - Player.Height + HitData.Distance / tanf(RayAngle);
 		FVector2D EndLoc = HitData.Location + SunDirection * 1.0f;
 
 		Hit LightRay = LineTrace(HitData.Location, EndLoc, true);
@@ -536,20 +537,18 @@ void WallLighting(int x, int y, Hit& HitData)
 
 void FloorLighting(int x, int y, Hit& HitData)
 {
-	// y is always bigger than half ScreenHeight, due to it being bottom half of the screen
-	float PrecentageOfBottomHalfScreen = (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f);
-	// Multiply the precentage with player bottom half vFOV and subtract it from angle between Floor and Player look direction
-	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - PrecentageOfBottomHalfScreen * (Player.vFOV / 2.0f);
+	float RayAngle = 3.14159f / 2.0f + Player.Rotation.Y - ScreenSpaceAnglesY[y];
 
 	// Floor location relative to the Player
-	float RelativeFloorLoc = tanf(RayAngle) * Player.Height;
+	float RelativeFloorLoc = tanf(RayAngle) * Player.Height / cosf(ScreenSpaceAnglesX[x]);
 	// Direction from the Player towards FloorLoc
 	FVector2D FloorLocDirection = (HitData.Location - Player.Location).Normalize();
 	// Floor location in World Space
 	FVector2D FloorLoc = Player.Location + FloorLocDirection * RelativeFloorLoc;
 
+
 	FVector2D UV;
-	UV.X = FloorLoc.X - (int)FloorLoc.X;
+	UV.X = FloorLoc.X - (int)FloorLoc.X; // If I want to fix glitchy textures in out of bounds, min the value to 0.0f for both X and Y
 	UV.Y = FloorLoc.Y - (int)FloorLoc.Y;
 
 	Console.Screen[y * Console.ScreenWidth + x].Attributes = DrawTexture(UV);
@@ -567,57 +566,127 @@ void FloorLighting(int x, int y, Hit& HitData)
 	}
 }
 
-void RenderObjects(int x)
+void RenderObjects()
 {
 	for (int i = 0; i < ObjectsCount; i++)
 	{
-		FVector2D ObjLoc = Objects[i]->Location;
-
-		float Distance = (ObjLoc - Player.Location).Lenght();
-
-		if (DepthBuffer[x] < Distance)
+		for (int x = 0; x < Console.ScreenWidth; x++)
 		{
-			return;
-		}
+			FVector2D ObjLoc = Objects[i]->Location;
 
-		//FVector2D LookDir(cosf(Player.Rotation.X), sinf(Player.Rotation.X));
+			float Distance = (ObjLoc - Player.Location).Lenght();
 
-		// For each Screen "pixel", calculate a ray angle
-		float RayAngle = (Player.Rotation.X - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV);
+			//FVector2D LookDir(cosf(Player.Rotation.X), sinf(Player.Rotation.X));
 
-		// Direction vector of the ray
-		FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
+			// For each Screen "pixel", calculate a ray angle
+			float RayAngle = (Player.Rotation.X - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV);
 
-		float Angle = acosf(LookDir * (ObjLoc - Player.Location).Normalize()) /** 57.2957795f*/;
-		if (Angle > 3.14159f / 2.0f)
-		{
-			return;
-		}
-		float distFromCenter = tanf(Angle / 2.0f) * Distance * 2.0f;
+			// Direction vector of the ray
+			FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
 
-		float AngleToCeiling = atanf((1.0 - Player.Height) / Distance) - Player.Rotation.Y;
-		float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
-
-		// How many radians from horizon to hit floor
-		float AngleToFloor = atanf(Player.Height / Distance) + Player.Rotation.Y;
-		float PrecentageWallTakesOfBottomHalfScreen = AngleToFloor / (Player.vFOV / 2.0f);
-
-		// Calculate ceiling and floor size
-		int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfTopHalfScreen;
-		int Floor = Console.ScreenHeight / 2.0f + (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfBottomHalfScreen;
-
-		if (distFromCenter < 0.05f)
-		{
-			for (int y = 0; y < Console.ScreenHeight; y++)
+			float Angle = acosf(LookDir * (ObjLoc - Player.Location).Normalize()) /** 57.2957795f*/;
+			if (Angle > 3.14159f / 2.0f)
 			{
-				if (Ceiling <= y && y <= Floor)
+				return;
+			}
+			float distFromCenter = tanf(Angle / 2.0f) * Distance * 2.0f;
+
+			float AngleToCeiling = atanf((1.0 - Player.Height) / Distance) - Player.Rotation.Y;
+			float PrecentageWallTakesOfTopHalfScreen = AngleToCeiling / (Player.vFOV / 2.0f);
+
+			// How many radians from horizon to hit floor
+			float AngleToFloor = atanf(Player.Height / Distance) + Player.Rotation.Y;
+			float PrecentageWallTakesOfBottomHalfScreen = AngleToFloor / (Player.vFOV / 2.0f);
+
+			// Calculate ceiling and floor size
+			int Ceiling = Console.ScreenHeight / 2.0f - (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfTopHalfScreen;
+			int Floor = Console.ScreenHeight / 2.0f + (Console.ScreenHeight / 2.0f) * PrecentageWallTakesOfBottomHalfScreen;
+
+			if (distFromCenter < 0.05f)
+			{
+				if (DepthBuffer[x] < Distance)
 				{
-					Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = DrawTexture(FVector2D());
-					Console.Screen[y * Console.ScreenWidth + x].Attributes = 0x000A;
+					return;
+				}
+				DepthBuffer[x] = Distance;
+				for (int y = 0; y < Console.ScreenHeight; y++)
+				{
+					if (Ceiling <= y && y <= Floor)
+					{
+						FVector2D UV;
+
+						float RayAngle2 = 3.14159f / 2.0f + Player.Rotation.Y - (y - Console.ScreenHeight / 2.0f) / (Console.ScreenHeight / 2.0f) * (Player.vFOV / 2.0f);
+						float PointHeight = 1.0f - Player.Height + Distance / tanf(RayAngle2);
+						UV.Y = PointHeight;
+						UV.X = distFromCenter / 0.05f;
+
+						short Texture = DrawTexture(UV, true);
+						if (Texture != 0x0000)
+						{
+							Console.Screen[y * Console.ScreenWidth + x].Attributes = Objects[i]->color;//Texture;
+							Console.Screen[y * Console.ScreenWidth + x].Char.UnicodeChar = 0x2588;
+						}
+					}
 				}
 			}
 		}
 	}
+}
+
+short DrawTexture(FVector2D UV, bool a)
+{
+	int X = 4, Y = 4;
+	short* Texture;
+	short TextureOut;
+
+	if (a)
+	{
+		X = 2;
+		Texture = new short[X * Y];
+		Texture[0] = 0x000F;
+		Texture[1] = 0x000F;
+		Texture[2] = 0x000F;
+		Texture[3] = 0x0000;
+		Texture[4] = 0x0000;
+		Texture[5] = 0x0000;
+		Texture[6] = 0x0000;
+		Texture[7] = 0x0000;
+	}
+	else
+	{
+		Texture = new short[X * Y];
+		Texture[0] = 0x000F;
+		Texture[1] = 0x0007;
+		Texture[2] = 0x000F;
+		Texture[3] = 0x0007;
+		Texture[4] = 0x0007;
+		Texture[5] = 0x000F;
+		Texture[6] = 0x0007;
+		Texture[7] = 0x000F;
+		Texture[8] = 0x000F;
+		Texture[9] = 0x0007;
+		Texture[10] = 0x000F;
+		Texture[11] = 0x0007;
+		Texture[12] = 0x0007;
+		Texture[13] = 0x000F;
+		Texture[14] = 0x0007;
+		Texture[15] = 0x000F;
+	}
+
+	TextureOut = Texture[(int)(UV.X * X) + (int)(UV.Y * Y) * X];
+
+	delete[] Texture;
+
+	//DEBUG UVs
+	if (Debug)
+	{
+		char c = '0' + (int)(UV.Y / 0.1f);
+		return c;
+	}
+
+
+
+	return TextureOut;
 }
 
 void DrawUI()

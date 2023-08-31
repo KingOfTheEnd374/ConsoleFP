@@ -6,6 +6,7 @@ class Object
 {
 public:
 	FVector2D Location;
+	short color = 0x000F;
 
 	Object(FVector2D Loc)
 	{
