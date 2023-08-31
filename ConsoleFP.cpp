@@ -111,9 +111,9 @@ void EventTick(float DeltaT)
 
 	CalculatePixels();
 
-	DrawUI();
-
 	RenderObjects();
+
+	DrawUI();
 }
 
 void HandleInput()
@@ -140,13 +140,11 @@ void HandleInput()
 
 	if (GetAsyncKeyState((unsigned short)'C'))
 	{
-		Player.Height = 0.3f;
-		Player.Speed = 1.5f;
+		Player.Crouch();
 	}
 	else
 	{
-		Player.Height = 0.8f;
-		Player.Speed = 5.0f;
+		Player.UnCrouch();
 	}
 
 	if (GetAsyncKeyState((unsigned short)'G'))
@@ -400,8 +398,6 @@ void CalculatePixels()
 
 void CalculateShading(Hit HitData, int x)
 {
-	// MOVE Ceiling and Floor TO SEPARATE FUNCTION
-
 	int Wall = GetWallStart(HitData);
 	int Floor = GetFloorStart(HitData);
 
