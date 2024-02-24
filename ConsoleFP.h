@@ -1,8 +1,11 @@
 #pragma once
 
 #include "DataTypes.h"
+#include "Object.h"
 
 void InitScreenSpace();
+
+void SpawnObject(Object* Object);
 
 void EventTick(float DeltaT);
 

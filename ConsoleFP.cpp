@@ -73,12 +73,10 @@ int main()
 
 	Player.vFOV = 2.0f * atanf((Console.ScreenHeight / 2.0f) / ProjectionPlaneDistance);
 
-	Objects[ObjectsCount] = new Object(FVector2D(8.5f, 10.5f));
-	ObjectsCount++;
-	Objects[0]->color = 0x000C;
+	SpawnObject(new Object(FVector2D(8.5f, 10.5f)));
+	SpawnObject(new Object(FVector2D(8.5f, 11.5f)));
 
-	Objects[ObjectsCount] = new Object(FVector2D(8.5f, 11.5f));
-	ObjectsCount++;
+	Objects[0]->color = 0x000C;
 	Objects[1]->color = 0x000B;
 
 	Console.Start();
@@ -99,6 +97,12 @@ void InitScreenSpace()
 	{
 		ScreenSpaceAnglesY[y] = atanf((y - Console.ScreenHeight / 2.0f) / ProjectionPlaneDistance);
 	}
+}
+
+void SpawnObject(Object* Object)
+{
+	Objects[ObjectsCount] = Object;
+	ObjectsCount++;
 }
 
 void EventTick(float DeltaT)
@@ -564,18 +568,43 @@ void FloorLighting(int x, int y, Hit& HitData)
 
 void RenderObjects()
 {
+	// Find all objecs in FOV
+	/*Object* ObjectsToRender[16];
+	float AnglesToObject[16];
+	int ObjRenderCount = 0;*/
+
+	for (int i = 0; i < ObjectsCount; i++)
+	{
+		FVector2D LookDir(cosf(Player.Rotation.X), sinf(Player.Rotation.X));
+		FVector2D ObjectDir = (Objects[i]->Location - Player.Location).Normalize();
+		float AngleToObject = acosf(LookDir * ObjectDir);
+		if (AngleToObject <= Player.FOV / 2.0f)
+		{
+			/*ObjectsToRender[ObjRenderCount] = Objects[i];
+			AnglesToObject[ObjRenderCount] = AngleToObject;
+			ObjRenderCount++;*/
+			for (int x = 0; x < Console.ScreenWidth; x++)
+			{
+				float RayAngle = Player.Rotation.X + ScreenSpaceAnglesX[x];
+				float Distance = (Objects[i]->Location - Player.Location).Lenght() * cosf(ScreenSpaceAnglesX[x]);
+			}
+		}
+	}
+
+	
+
+
 	for (int i = 0; i < ObjectsCount; i++)
 	{
 		for (int x = 0; x < Console.ScreenWidth; x++)
 		{
 			FVector2D ObjLoc = Objects[i]->Location;
 
-			float Distance = (ObjLoc - Player.Location).Lenght();
-
-			//FVector2D LookDir(cosf(Player.Rotation.X), sinf(Player.Rotation.X));
+			float Distance = (ObjLoc - Player.Location).Lenght() * cosf(ScreenSpaceAnglesX[x]);
 
 			// For each Screen "pixel", calculate a ray angle
-			float RayAngle = (Player.Rotation.X - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV);
+			//float RayAngle = (Player.Rotation.X - Player.FOV / 2.0f) + ((float)x / (float)Console.ScreenWidth * Player.FOV);
+			float RayAngle = Player.Rotation.X + ScreenSpaceAnglesX[x];
 
 			// Direction vector of the ray
 			FVector2D LookDir(cosf(RayAngle), sinf(RayAngle));
@@ -643,9 +672,9 @@ short DrawTexture(FVector2D UV, bool a)
 		Texture[1] = 0x000F;
 		Texture[2] = 0x000F;
 		Texture[3] = 0x0000;
-		Texture[4] = 0x0000;
+		Texture[4] = 0x000F;
 		Texture[5] = 0x0000;
-		Texture[6] = 0x0000;
+		Texture[6] = 0x000F;
 		Texture[7] = 0x0000;
 	}
 	else
