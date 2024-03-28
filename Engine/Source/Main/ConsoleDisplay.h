@@ -1,8 +1,8 @@
 #pragma once
-#include <Windows.h>
-#include <condition_variable>
+//#include <Windows.h>
+//#include <condition_variable>
 
-class ConsoleDisplay
+/*class ConsoleDisplay
 {
 public:
 	int ScreenWidth;
@@ -89,4 +89,4 @@ public:
 	}
 
 	virtual void OnUpdate(float DeltaTime){}
-};
+};*/
